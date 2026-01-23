@@ -11,7 +11,7 @@ from src.domain.exceptions import (
     VideoDetailsLoadError,
     VideoTranscriptError,
 )
-from src.infrastructure.adapters.loaders import (
+from src.infrastructure.extensions.loaders import (
     YoutubeLoaderWithProxy,
     TranscriptFormat,
 )

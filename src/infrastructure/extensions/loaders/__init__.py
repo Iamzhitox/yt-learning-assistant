@@ -1,4 +1,4 @@
-from src.infrastructure.adapters.loaders.youtube_loader_with_proxy import (
+from src.infrastructure.extensions.loaders.youtube_loader_with_proxy import (
     YoutubeLoaderWithProxy,
     TranscriptFormat,
 )

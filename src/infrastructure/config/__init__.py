@@ -16,6 +16,8 @@ from src.infrastructure.config.config import (
     MMR_FETCH_K,
     SEARCH_K,
     ENABLE_HYBRID_SEARCH,
+    USERS_DIR,
+    DATA_DIR,
 )
 
 __all__ = [
@@ -36,4 +38,6 @@ __all__ = [
     "MMR_FETCH_K",
     "SEARCH_K",
     "ENABLE_HYBRID_SEARCH",
+    "USERS_DIR",
+    "DATA_DIR",
 ]

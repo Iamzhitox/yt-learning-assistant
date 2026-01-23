@@ -19,7 +19,7 @@ from src.domain.exceptions import (
     VectorStoreInitializationError,
     LLMInitializationError,
 )
-from src.infrastructure.adapters.embeddings import init_embeddings
+from src.infrastructure.extensions.embeddings import init_embeddings
 from src.infrastructure.config import (
     PERSIST_DIR,
     EMBEDDING_MODEL,

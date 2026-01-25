@@ -1,5 +1,5 @@
 from urllib.parse import urlparse, parse_qs
-
+from src.domain.models.youtube import YoutubePlaylist
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -10,7 +10,7 @@ from langchain_chroma import Chroma
 from langchain_classic.chat_models import init_chat_model
 from langchain_classic.retrievers import EnsembleRetriever, MultiQueryRetriever
 from langchain_community.retrievers import BM25Retriever
-
+from src.application.services import YouTubePlaylistLoader
 from src.domain.exceptions import (
     InvalidPlaylistUrlError,
     InvalidEmbeddingModelError,
@@ -30,7 +30,12 @@ from src.infrastructure.config import (
     SEARCH_K,
     SEARCH_TYPE,
 )
-from src.prompts import SYSTEM_PROMPT, HUMAN_PROMPT
+from src.domain.exceptions import (
+    PlaylistLoadError,
+    TranscriptLoadError,
+    VectorStoreWriteError,
+)
+from src.domain.prompts import SYSTEM_PROMPT, HUMAN_PROMPT
 
 
 def get_playlist_id_from_url(url: str) -> str:
@@ -134,3 +139,56 @@ def seconds_to_hms(seconds: float | int | None) -> str:
     secs = int(seconds % 60)
 
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def get_playlist_id():
+    yt_playlist_url = input(
+        f"{'='*50}\n\nChoose a playlist for the model to learn from:\n\n{'='*50}\n\n- "
+    )
+    yt_playlist_id = get_playlist_id_from_url(yt_playlist_url)
+    print("\n\n")
+
+    return yt_playlist_id
+
+
+def gen_retriever(vector_store: Chroma, playlist_id: str):
+    llm = get_query_model()
+
+    base_retriever = get_similarity_retriever(
+        vector_store=vector_store, playlist_id=playlist_id
+    )
+    retriever = get_ensemble_retriever(
+        llm=llm,
+        vector_store=vector_store,
+        retriever=base_retriever,
+        playlist_id=playlist_id,
+    )
+
+    return retriever
+
+
+async def get_playlist_details(
+    yt_service: YouTubePlaylistLoader, playlist_id: str, is_loaded: bool
+):
+    try:
+        yt_service.load_playlist_details()
+        yt_service.load_video_details()
+    except Exception as e:
+        raise PlaylistLoadError(playlist_id, e) from e
+
+    if not is_loaded:
+        try:
+            await yt_service.load_transcript_videos()
+        except Exception as e:
+            raise TranscriptLoadError(playlist_id, e) from e
+
+    return yt_service.build()
+
+
+def save_transcripts(vector_store: Chroma, playlist: YoutubePlaylist, playlist_id: str):
+    if playlist:
+        try:
+            for video in playlist.videos:
+                vector_store.add_documents(video.transcript)
+        except Exception as e:
+            raise VectorStoreWriteError(playlist_id, e) from e

@@ -23,6 +23,22 @@ Formás parte de una plataforma educativa donde tu función es:
 
 ---
 
+## CONTEXTO DE LA CONVERSACIÓN
+
+Esta sección contiene el historial de la conversación para que puedas mantener coherencia y continuidad en tus respuestas.
+
+### Resumen del historial previo
+Un resumen de los mensajes anteriores que exceden el límite de mensajes recientes:
+
+{pruned_history_summary}
+
+### Últimos mensajes
+Los mensajes más recientes de la conversación en formato `[Rol]: mensaje`:
+
+{last_messages}
+
+---
+
 ## CHUNKS RELEVANTES
 
 Los chunks tienen el siguiente formato:

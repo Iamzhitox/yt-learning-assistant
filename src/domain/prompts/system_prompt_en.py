@@ -23,6 +23,22 @@ You are part of an educational platform where your function is to:
 
 ---
 
+## CONVERSATION CONTEXT
+
+This section contains the conversation history so you can maintain coherence and continuity in your responses.
+
+### Previous history summary
+A summary of previous messages that exceed the recent messages limit:
+
+{pruned_history_summary}
+
+### Recent messages
+The most recent messages in the conversation in `[Role]: message` format:
+
+{last_messages}
+
+---
+
 ## RELEVANT CHUNKS
 
 Chunks have the following format:

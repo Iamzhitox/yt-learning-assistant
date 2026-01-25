@@ -16,9 +16,13 @@ from src.infrastructure.config.config import (
     MMR_FETCH_K,
     SEARCH_K,
     ENABLE_HYBRID_SEARCH,
-    USERS_DIR,
-    DATA_DIR,
+    CHATS_DIR,
+    MAX_MSG_SUMMARY,
+    CHAT_STATE_DIR,
+    DEFAULT_CHAT_ID,
 )
+
+from src.infrastructure.config.database import engine as ENGINE
 
 __all__ = [
     "GOOGLE_API_KEY",
@@ -38,6 +42,9 @@ __all__ = [
     "MMR_FETCH_K",
     "SEARCH_K",
     "ENABLE_HYBRID_SEARCH",
-    "USERS_DIR",
-    "DATA_DIR",
+    "CHATS_DIR",
+    "ENGINE",
+    "MAX_MSG_SUMMARY",
+    "CHAT_STATE_DIR",
+    "DEFAULT_CHAT_ID",
 ]

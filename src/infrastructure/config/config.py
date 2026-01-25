@@ -8,6 +8,21 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 PERSIST_DIR: str = os.getenv("PERSIST_DIR", str(PROJECT_ROOT / "db"))
 
+CHATS_DIR = os.path.join(PROJECT_ROOT, "db", "chats")
+os.makedirs(CHATS_DIR, exist_ok=True)
+
+CHATS_DB_PATH = PROJECT_ROOT / "db" / "chats" / "chats.db"
+CHATS_DB_URL = f"sqlite:///{CHATS_DB_PATH}"
+
+CHAT_STATE_DIR = os.path.join(PROJECT_ROOT, "db", "chats", "states.db")
+
+DEFAULT_CHAT_ID: str | None = os.getenv("DEFAULT_CHAT_ID", "")
+if not DEFAULT_CHAT_ID:
+    raise ValueError("DEFAULT_CHAT_ID environment variable is required")
+
+# DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+# USERS_DIR = os.path.join(PROJECT_ROOT, "users")
+
 GOOGLE_API_KEY: str | None = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY environment variable is required")
@@ -48,3 +63,5 @@ ENABLE_HYBRID_SEARCH: bool = os.getenv("ENABLE_HYBRID_SEARCH", "true").lower() =
 
 MMR_DIVERSITY_LAMBDA: float = float(os.getenv("MMR_DIVERSITY_LAMBDA", "0.7"))
 MMR_FETCH_K: int = int(os.getenv("MMR_FETCH_K", "20"))
+
+MAX_MSG_SUMMARY = 6

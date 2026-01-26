@@ -71,6 +71,7 @@ Thumbs.db
 
 # Markdown files
 *.md
+!README.md
 
 # Cache
 .cache/

@@ -13,7 +13,6 @@ from .helpers import (
 )
 from .edges import should_load_or_save, should_save_to_db
 from .nodes import (
-    init_retriever,
     get_relevant_chunks,
     get_query,
     ask_answer_llm,
@@ -34,7 +33,6 @@ __all__ = [
     "seconds_to_hms",
     "should_load_or_save",
     "should_save_to_db",
-    "init_retriever",
     "get_relevant_chunks",
     "get_query",
     "ask_answer_llm",

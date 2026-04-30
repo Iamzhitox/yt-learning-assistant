@@ -3,7 +3,6 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langchain_core.runnables.config import RunnableConfig
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.callbacks import BaseCallbackHandler
 from src.application.graph.helpers import playlist_exist
 from src.application.graph.state import State
 from src.application.graph.helpers import (
@@ -11,6 +10,7 @@ from src.application.graph.helpers import (
     get_playlist_id,
     get_playlist_details,
     save_transcripts,
+    get_callbacks,
 )
 from src.infrastructure.config import CHAT_STATE_DIR, DEFAULT_CHAT_ID
 from src.application.services.memory_manager import MemoryManager
@@ -18,26 +18,6 @@ from src.application.graph.nodes.manager import manager_node
 from src.application.graph.nodes.analyst import analyst_node
 from src.application.graph.nodes.teacher import teacher_node
 from src.application.services import YouTubePlaylistLoader
-
-# region CALLBACKS
-
-
-class AgentTracer(BaseCallbackHandler):
-    def on_tool_start(self, serialized, input_str, **kwargs):
-        name = serialized.get("name", "?")
-        print(f"\n[tool call] {name}  →  {input_str}")
-
-    def on_tool_end(self, output, **kwargs):
-        preview = str(output)[:300]
-        print(f"[tool result] {preview}{'...' if len(str(output)) > 300 else ''}")
-
-    def on_chain_start(self, serialized, inputs, **kwargs):
-        if not serialized:
-            return
-        name = serialized.get("name", "")
-        if name in ("agent_manager", "agent_analyst", "agent_teacher"):
-            print(f"\n[node] {name}")
-
 
 # region GRAPH
 
@@ -86,7 +66,7 @@ async def main():
         context = await memory.get_context()
         config: RunnableConfig = {
             "configurable": {"thread_id": memory.get_chat_id()},
-            "callbacks": [AgentTracer()],
+            "callbacks": get_callbacks(),
         }
 
         compiled_graph = create_compiled_graph(checkpointer)

@@ -18,6 +18,7 @@ from src.domain.exceptions import (
     LLMInitializationError,
 )
 from src.infrastructure.extensions.embeddings import init_embeddings
+from langchain_core.callbacks import BaseCallbackHandler
 from src.infrastructure.config import (
     PERSIST_DIR,
     EMBEDDING_MODEL,
@@ -26,6 +27,7 @@ from src.infrastructure.config import (
     QUERY_MODEL,
     SEARCH_K,
     SEARCH_TYPE,
+    DISPLAY_OBSERVATIONS,
 )
 from src.domain.exceptions import (
     PlaylistLoadError,
@@ -202,3 +204,24 @@ def save_transcripts(vector_store: Chroma, playlist: YoutubePlaylist, playlist_i
                 vector_store.add_documents(video.transcript)
         except Exception as e:
             raise VectorStoreWriteError(playlist_id, e) from e
+
+
+class AgentTracer(BaseCallbackHandler):
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        name = serialized.get("name", "?")
+        print(f"\n[tool call] {name}  →  {input_str}")
+
+    def on_tool_end(self, output, **kwargs):
+        preview = str(output)[:300]
+        print(f"[tool result] {preview}{'...' if len(str(output)) > 300 else ''}")
+
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        if not serialized:
+            return
+        name = serialized.get("name", "")
+        if name in ("agent_manager", "agent_analyst", "agent_teacher"):
+            print(f"\n[node] {name}")
+
+
+def get_callbacks() -> list:
+    return [AgentTracer()] if DISPLAY_OBSERVATIONS else []

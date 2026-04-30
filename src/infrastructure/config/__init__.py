@@ -21,6 +21,7 @@ from src.infrastructure.config.config import (
     CHAT_STATE_DIR,
     DEFAULT_CHAT_ID,
     TAVILY_API_KEY,
+    DISPLAY_OBSERVATIONS,
 )
 
 from src.infrastructure.config.database import engine as ENGINE
@@ -49,4 +50,5 @@ __all__ = [
     "CHAT_STATE_DIR",
     "DEFAULT_CHAT_ID",
     "TAVILY_API_KEY",
+    "DISPLAY_OBSERVATIONS",
 ]

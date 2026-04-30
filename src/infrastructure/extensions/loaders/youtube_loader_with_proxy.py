@@ -139,7 +139,7 @@ class YoutubeLoaderWithProxy(YoutubeLoader):
         try:
             transcript = transcript_list.find_transcript(self.language)
         except NoTranscriptFound:
-            transcript = transcript_list.find_transcript(["en"])
+            transcript = transcript_list.find_transcript(["en", "es"])
 
         if self.translation is not None:
             transcript = transcript.translate(self.translation)

@@ -6,7 +6,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from src.domain.models import Chat
 from sqlmodel import Session, select
-from langchain_classic.chat_models import init_chat_model
+from langchain.chat_models import init_chat_model
 from langchain_core.prompts import ChatPromptTemplate
 from src.application.graph.state import ContextDict
 

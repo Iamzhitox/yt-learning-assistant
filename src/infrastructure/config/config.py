@@ -27,6 +27,10 @@ GOOGLE_API_KEY: str | None = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY environment variable is required")
 
+TAVILY_API_KEY: str | None = os.getenv("TAVILY_API_KEY")
+if not TAVILY_API_KEY:
+    raise ValueError("TAVILY_API_KEY environment variable is required")
+
 API_SERVICE_NAME: str = "youtube"
 API_VERSION: str = "v3"
 

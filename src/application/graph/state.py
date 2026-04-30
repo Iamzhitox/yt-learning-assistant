@@ -1,6 +1,5 @@
-from typing import TypedDict, NotRequired
-from langchain_core.documents import Document
-from src.domain.models import YoutubePlaylist
+from typing import TypedDict, NotRequired, Annotated
+from langgraph.graph.message import add_messages
 
 
 class ContextDict(TypedDict):
@@ -8,10 +7,16 @@ class ContextDict(TypedDict):
     last_messages: str
 
 
+class PlaylistMetadata(TypedDict):
+    title: str
+    author: str
+    description: str
+
+
 class State(TypedDict):
+    messages: Annotated[list, add_messages]
     query: NotRequired[str]
     playlist_id: NotRequired[str]
-    yt_playlist: NotRequired[YoutubePlaylist]
-    retrieved_chunks: NotRequired[list[Document]]
-    ai_answer: NotRequired[str]
     context: NotRequired[ContextDict]
+    playlist_metadata: NotRequired[PlaylistMetadata]
+    agent_output: NotRequired[str]

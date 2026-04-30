@@ -82,3 +82,6 @@ tmp/
 temp/
 *.tmp
 *.bak
+
+# Generated output
+output/

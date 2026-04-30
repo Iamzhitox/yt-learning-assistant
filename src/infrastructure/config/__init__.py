@@ -20,6 +20,7 @@ from src.infrastructure.config.config import (
     MAX_MSG_SUMMARY,
     CHAT_STATE_DIR,
     DEFAULT_CHAT_ID,
+    TAVILY_API_KEY,
 )
 
 from src.infrastructure.config.database import engine as ENGINE
@@ -47,4 +48,5 @@ __all__ = [
     "MAX_MSG_SUMMARY",
     "CHAT_STATE_DIR",
     "DEFAULT_CHAT_ID",
+    "TAVILY_API_KEY",
 ]

@@ -3,11 +3,9 @@ from src.domain.models.youtube import YoutubePlaylist
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.retrievers import BaseRetriever
-from langchain_core.runnables import Runnable
 from langchain_chroma import Chroma
-from langchain_classic.chat_models import init_chat_model
+from langchain.chat_models import init_chat_model
 from langchain_classic.retrievers import EnsembleRetriever, MultiQueryRetriever
 from langchain_community.retrievers import BM25Retriever
 from src.application.services import YouTubePlaylistLoader
@@ -26,7 +24,6 @@ from src.infrastructure.config import (
     EMBEDDING_PROVIDER,
     LLM_PROVIDER,
     QUERY_MODEL,
-    GENERATION_MODEL,
     SEARCH_K,
     SEARCH_TYPE,
 )
@@ -35,7 +32,7 @@ from src.domain.exceptions import (
     TranscriptLoadError,
     VectorStoreWriteError,
 )
-from src.domain.prompts import SYSTEM_PROMPT, HUMAN_PROMPT
+from chromadb.api.types import Where
 
 
 def get_playlist_id_from_url(url: str) -> str:
@@ -76,18 +73,57 @@ def init_vector_db() -> Chroma:
         raise VectorStoreInitializationError(PERSIST_DIR, e) from e
 
 
-def get_similarity_retriever(vector_store: Chroma, playlist_id: str) -> BaseRetriever:
+def scope_filter(playlist_id: str, video_ids: list[str] = []) -> Where:
+    if not video_ids:
+        return {"playlist_id": playlist_id}
+
+    if len(video_ids) == 1:
+        return {"$and": [{"playlist_id": playlist_id}, {"video_id": video_ids[0]}]}
+
+    return {
+        "$and": [
+            {"playlist_id": playlist_id},
+            {"$or": [{"video_id": video_id} for video_id in video_ids]},
+        ]
+    }
+
+
+def gen_retriever(vector_store: Chroma, playlist_id: str, video_ids: list[str] = []):
+    llm = get_query_model()
+
+    base_retriever = get_similarity_retriever(
+        vector_store=vector_store, playlist_id=playlist_id, video_ids=video_ids
+    )
+    retriever = get_ensemble_retriever(
+        llm=llm,
+        vector_store=vector_store,
+        retriever=base_retriever,
+        playlist_id=playlist_id,
+        video_ids=video_ids,
+    )
+
+    return retriever
+
+
+def get_similarity_retriever(
+    vector_store: Chroma, playlist_id: str, video_ids: list[str] = []
+) -> BaseRetriever:
+    retriever_filter = scope_filter(playlist_id, video_ids)
     return vector_store.as_retriever(
         search_type=SEARCH_TYPE,
-        search_kwargs={"k": SEARCH_K, "filter": {"playlist_id": playlist_id}},
+        search_kwargs={"k": SEARCH_K, "filter": retriever_filter},
     )
 
 
 def get_ensemble_retriever(
-    llm: BaseChatModel, vector_store: Chroma, retriever: BaseRetriever, playlist_id: str
+    llm: BaseChatModel,
+    vector_store: Chroma,
+    retriever: BaseRetriever,
+    playlist_id: str,
+    video_ids: list[str] = [],
 ) -> BaseRetriever:
-
-    docs = vector_store.get(where={"playlist_id": playlist_id})["documents"]
+    retriever_filter = scope_filter(playlist_id, video_ids)
+    docs = vector_store.get(where=retriever_filter)["documents"]
 
     if not docs or len(docs) == 0:
         raise PlaylistDocumentsNotFoundError(playlist_id)
@@ -112,16 +148,6 @@ def get_query_model() -> BaseChatModel:
         return init_chat_model(model_provider=LLM_PROVIDER, model=QUERY_MODEL)
     except Exception as e:
         raise LLMInitializationError(LLM_PROVIDER, QUERY_MODEL, e) from e
-
-
-def get_llm_chain() -> Runnable:
-    try:
-        llm = init_chat_model(model_provider=LLM_PROVIDER, model=GENERATION_MODEL)
-    except Exception as e:
-        raise LLMInitializationError(LLM_PROVIDER, GENERATION_MODEL, e) from e
-
-    template = ChatPromptTemplate.from_messages([SYSTEM_PROMPT, HUMAN_PROMPT])
-    return template | llm
 
 
 def format_chunks_for_prompt(relevant_chunks: list[Document]) -> str:
@@ -149,22 +175,6 @@ def get_playlist_id():
     print("\n\n")
 
     return yt_playlist_id
-
-
-def gen_retriever(vector_store: Chroma, playlist_id: str):
-    llm = get_query_model()
-
-    base_retriever = get_similarity_retriever(
-        vector_store=vector_store, playlist_id=playlist_id
-    )
-    retriever = get_ensemble_retriever(
-        llm=llm,
-        vector_store=vector_store,
-        retriever=base_retriever,
-        playlist_id=playlist_id,
-    )
-
-    return retriever
 
 
 async def get_playlist_details(

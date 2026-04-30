@@ -181,6 +181,110 @@ The application will prompt you to enter a YouTube playlist URL, then you can as
 
 ## Architecture Decision Records
 
+### ADR-001: Proxy Support for Transcript Loading
+
+**Context**
+
+Transcripts are fetched via the `youtube-transcript-api` library. When processing a single video, rate limiting is rarely an issue. However, the platform is designed to ingest entire YouTube playlists, which means sending many concurrent requests to the YouTube API in a short window. This regularly triggers rate limiting errors that interrupt ingestion.
+
+**Decision**
+
+Add optional proxy support to the transcript loader (`YoutubeLoaderWithProxy`). Webshare proxy credentials can be supplied via environment variables (`PROXY_USER`, `PROXY_PASS`). When present, all transcript requests are routed through the proxy. When absent, the loader falls back to direct requests. A configurable delay between requests is also enforced regardless of proxy usage, to reduce pressure on the API.
+
+**Consequences**
+
+- Playlist ingestion becomes significantly more reliable at scale.
+- Proxy credentials are optional, single-video or low-volume use cases are unaffected.
+- Introduces a dependency on a third-party proxy service (Webshare) for production workloads.
+
+---
+
+### ADR-002: Hybrid Retrieval with MultiQueryRetriever
+
+**Context**
+
+Retrieval quality directly affects the usefulness of every answer the system produces. Several approaches were evaluated: pure vector similarity search, BM25 lexical search, reranking, MMR diversity filtering, and redundancy filters. The challenge was finding a balance between retrieval quality and cost per query.
+
+**Decision**
+
+Use a hybrid retrieval approach that combines BM25 lexical search with vector similarity search, wrapped in a LangChain `MultiQueryRetriever`. The retriever generates a small number of alternative phrasings of the original query to improve document matching across different formulations.
+
+More sophisticated filters (relevance reranking, redundancy removal) were considered but excluded. BM25 and similarity search naturally complement each other: BM25 excels at exact keyword matches where semantic search underperforms, and semantic search captures meaning where BM25 misses paraphrases. Together, they cover each other's blind spots without additional filtering layers. The MultiQueryRetriever adds a modest LLM call to generate alternative queries, which is acceptable because query reformulation involves very short outputs.
+
+**Consequences**
+
+- Retrieval quality is meaningfully better than either method alone, especially for paraphrased or ambiguous questions.
+- The extra LLM call for query reformulation introduces a small, bounded cost per retrieval.
+- Retrieval behavior is tunable via environment variables (`SEARCH_TYPE`, `SEARCH_K`, `ENABLE_HYBRID_SEARCH`).
+
+---
+
+### ADR-003: Message-Count-Based Context Summarization
+
+**Context**
+
+As a conversation grows, passing the full message history to the LLM on every request becomes expensive. The standard approach is to truncate by token count once the context window fills up. However, token-count management adds complexity and requires accurate token estimation per model.
+
+**Decision**
+
+Limit context by message count rather than token count. When the conversation exceeds `MAX_MSG_SUMMARY` messages (default: 6), older messages are compressed into a rolling summary. The most recent 6 messages are always kept verbatim; only the messages beyond that threshold are summarized.
+
+In this domain, question-and-answer pairs about a course playlist tend to have a roughly similar token footprint. Counting messages is therefore a reasonable proxy for counting tokens, and it is simpler to implement and model-agnostic. The summarization itself is offloaded to a separate LLM call with targeted instructions, so it does not pollute the agent's working context.
+
+**Consequences**
+
+- Context costs grow slowly and predictably as conversations get longer.
+- The approximation holds well for typical Q&A patterns but could degrade if individual messages vary significantly in length.
+- The `MAX_MSG_SUMMARY` threshold is configurable, allowing adjustment without code changes.
+
+---
+
+### ADR-004: 30-Second Transcript Chunks with Timestamp Metadata
+
+**Context**
+
+YouTube transcripts need to be split into chunks before being embedded and stored in the vector store. The chunking strategy directly determines both retrieval accuracy and the quality of timestamp citations, which are a core feature of the platform: users expect to be linked to the exact moment in a video where a topic is explained.
+
+**Decision**
+
+Split transcripts into fixed 30-second segments. Each chunk carries metadata: `video_id`, `video_title`, `playlist_id`, `start_seconds`, and `end_seconds`. A small character-level overlap (~100 characters) is applied between adjacent chunks to avoid cutting off sentences mid-thought and to provide bridging context.
+
+The 30-second window was chosen with citation precision as the primary goal: a retrieved chunk should land the user as close as possible to the moment where the speaker begins addressing the relevant topic. Larger windows would reduce precision; smaller windows would fragment ideas across too many chunks and hurt retrieval coherence. The overlap is intentionally small, just enough to smooth over chunk boundaries without duplicating content.
+
+**Consequences**
+
+- Timestamp citations are precise enough to be genuinely useful for navigation.
+- The fixed time-based segmentation is simpler and more predictable than token-based or sentence-based splitting.
+- Chunk count scales with total playlist duration rather than content density, which is predictable.
+- The `chunks_to_transcript` tool can reconstruct a full video transcript by sorting chunks on `start_seconds`, enabling the Analyst to work with full video context when needed.
+
+---
+
+### ADR-005: Three-Agent Architecture (Supervisor, Analyst, Teacher)
+
+**Context**
+
+The initial implementation used a single agent responsible for all tasks: understanding the user's question, retrieving content from the vector store, searching the web, summarizing, and generating educational material. As capabilities expanded, the monolithic system prompt grew large and unfocused, increasing the token cost of every request regardless of what the user actually asked.
+
+**Decision**
+
+Split the workflow into three specialized agents coordinated by a LangGraph graph:
+
+**Supervisor** - the top-level coordination layer. It reads the full conversation context and decides whether to respond directly or delegate to a specialist. It generates all user-facing responses and is the only agent that interacts with the user, so it uses the most capable model in the setup (`GENERATION_MODEL`). It carries no tools.
+
+**Analyst** - a ReAct agent for information retrieval and research. It handles everything related to finding and processing content: semantic search in the vector store, transcript reconstruction, summarization, and web search fallback. It returns structured, processed information to the Supervisor rather than speaking directly to the user.
+
+**Teacher** - a ReAct agent for generating educational evaluation material. It always receives content already prepared by the Analyst and never fetches data itself. Its sole responsibility is transforming that content into quizzes (JSON) and exams (PDF).
+
+The Supervisor can chain agents across a single request. For example, "create a quiz on topic X" follows the path: Supervisor → Analyst → Supervisor → Teacher → Supervisor → user.
+
+**Consequences**
+
+- Each agent's system prompt is focused and concise, reducing per-request token cost.
+- Responsibilities are clearly separated, making it easier to modify or extend individual agents without affecting the others.
+- The Analyst and Teacher use a lighter model (`QUERY_MODEL`), reserving the more capable model for the Supervisor's coordination and response generation.
+- Chaining adds latency for complex requests that require multiple agent hops, which is an acceptable trade-off given the depth of processing involved.
+
 ## License
 
 MIT

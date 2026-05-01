@@ -1,4 +1,8 @@
-from langchain_core.prompts import SystemMessagePromptTemplate
+from langchain_core.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+SUMMARY_HUMAN_PROMPT_EN = HumanMessagePromptTemplate.from_template(
+    "Process the messages above and produce the updated summary following the criteria and format defined in your instructions."
+)
 
 SUMMARY_PROMPT_EN = SystemMessagePromptTemplate.from_template(
     """

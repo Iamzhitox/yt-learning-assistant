@@ -12,12 +12,13 @@ from src.application.graph.state import ContextDict
 
 from src.infrastructure.config import (
     ENGINE,
+    ENGINE_SESSION_KWARGS,
     MAX_MSG_SUMMARY,
     LLM_PROVIDER,
     QUERY_MODEL,
 )
 
-from src.domain.prompts import HUMAN_PROMPT, SUMMARY_PROMPT
+from src.domain.prompts import SUMMARY_PROMPT, SUMMARY_HUMAN_PROMPT
 
 
 class MemoryState(TypedDict):
@@ -49,7 +50,7 @@ class MemoryManager:
 
     def _create_chat_with_id(self, chat_id: str) -> Chat:
         new_chat = Chat(chat_id=UUID(chat_id))
-        with Session(ENGINE) as session:
+        with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             session.add(new_chat)
             session.commit()
             session.refresh(new_chat)
@@ -58,7 +59,7 @@ class MemoryManager:
     def _create_new_chat(self) -> Chat:
         new_chat_id = uuid.uuid4()
         new_chat = Chat(chat_id=new_chat_id)
-        with Session(ENGINE) as session:
+        with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             session.add(new_chat)
             session.commit()
             session.refresh(new_chat)
@@ -66,7 +67,7 @@ class MemoryManager:
         return new_chat
 
     def _get_chat(self, chat_id: str):
-        with Session(ENGINE) as session:
+        with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             query = select(Chat).where(Chat.chat_id == UUID(chat_id))
             chat = session.exec(query).first()
 
@@ -84,12 +85,12 @@ class MemoryManager:
 
     def _get_summarization_chain(self):
         llm = init_chat_model(model_provider=LLM_PROVIDER, model=QUERY_MODEL)
-        template = ChatPromptTemplate.from_messages([SUMMARY_PROMPT, HUMAN_PROMPT])
+        template = ChatPromptTemplate.from_messages([SUMMARY_PROMPT, SUMMARY_HUMAN_PROMPT])
 
         return template | llm
 
     def _save_changes(self):
-        with Session(ENGINE) as session:
+        with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             session.add(self.chat_instance)
             session.commit()
 

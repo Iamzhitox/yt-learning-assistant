@@ -24,7 +24,7 @@ from src.infrastructure.config.config import (
     DISPLAY_OBSERVATIONS,
 )
 
-from src.infrastructure.config.database import engine as ENGINE
+from src.infrastructure.config.database import engine as ENGINE, ENGINE_SESSION_KWARGS
 
 __all__ = [
     "GOOGLE_API_KEY",
@@ -46,6 +46,7 @@ __all__ = [
     "ENABLE_HYBRID_SEARCH",
     "CHATS_DIR",
     "ENGINE",
+    "ENGINE_SESSION_KWARGS",
     "MAX_MSG_SUMMARY",
     "CHAT_STATE_DIR",
     "DEFAULT_CHAT_ID",

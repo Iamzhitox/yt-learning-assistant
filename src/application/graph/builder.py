@@ -63,7 +63,6 @@ async def main():
 
     async with AsyncSqliteSaver.from_conn_string(CHAT_STATE_DIR) as checkpointer:
         memory = MemoryManager(chat_id=DEFAULT_CHAT_ID, checkpointer=checkpointer)
-        context = await memory.get_context()
         config: RunnableConfig = {
             "configurable": {"thread_id": memory.get_chat_id()},
             "callbacks": get_callbacks(),
@@ -72,29 +71,45 @@ async def main():
         compiled_graph = create_compiled_graph(checkpointer)
 
         playlist_title = yt_playlist.title
-        user_input = input(f"\n{'='*50}\n\nAsk me something about \"{playlist_title}\":\n\n- ").strip()
-
-        state: State = {
-            "context": context,
-            "messages": [HumanMessage(content=user_input)],
-            "query": user_input,
-            "playlist_id": playlist_id,
-            "playlist_metadata": {
-                "title": yt_playlist.title,
-                "author": yt_playlist.author,
-                "description": yt_playlist.description,
-            },
-        }
-
-        result = await compiled_graph.ainvoke(state, config=config)
-        await memory.update_chat()
-
-        last_ai = next(
-            (m for m in reversed(result.get("messages", [])) if isinstance(m, AIMessage)),
-            None,
+        print(
+            f"\n{'='*50}\n\nStarted session about \"{playlist_title}\". Type 'exit' to quit.\n"
         )
-        if last_ai:
-            print(f"\n{'='*50}\n\n{last_ai.content}\n")
+
+        while True:
+            user_input = input("- ").strip()
+            if user_input.lower() == "exit":
+                print("\nSesión finalizada.\n")
+                break
+            if not user_input:
+                continue
+
+            context = await memory.get_context()
+
+            state: State = {
+                "context": context,
+                "messages": [HumanMessage(content=user_input)],
+                "query": user_input,
+                "playlist_id": playlist_id,
+                "playlist_metadata": {
+                    "title": yt_playlist.title,
+                    "author": yt_playlist.author,
+                    "description": yt_playlist.description,
+                },
+            }
+
+            result = await compiled_graph.ainvoke(state, config=config)
+            await memory.update_chat()
+
+            last_ai = next(
+                (
+                    m
+                    for m in reversed(result.get("messages", []))
+                    if isinstance(m, AIMessage)
+                ),
+                None,
+            )
+            if last_ai:
+                print(f"\n{last_ai.content}\n")
 
 
 if __name__ == "__main__":

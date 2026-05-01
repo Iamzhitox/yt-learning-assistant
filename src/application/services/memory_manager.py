@@ -35,7 +35,7 @@ class MemoryManager:
 
         if chat_id:
             self.chat_id = chat_id
-            self.chat_instance = self._get_chat(chat_id)
+            self.chat_instance = self._get_chat(chat_id) or self._create_chat_with_id(chat_id)
             self.new_chat = False
         else:
             self.chat_instance = self._create_new_chat()
@@ -46,6 +46,14 @@ class MemoryManager:
 
     def is_new_chat(self):
         return self.new_chat or False
+
+    def _create_chat_with_id(self, chat_id: str) -> Chat:
+        new_chat = Chat(chat_id=UUID(chat_id))
+        with Session(ENGINE) as session:
+            session.add(new_chat)
+            session.commit()
+            session.refresh(new_chat)
+        return new_chat
 
     def _create_new_chat(self) -> Chat:
         new_chat_id = uuid.uuid4()
@@ -89,8 +97,8 @@ class MemoryManager:
         return self.chat_id
 
     async def update_chat(self):
-        state = await self.checkpointer.aget(self.config)
-        messages = state.get("messages", []) if state else []
+        checkpoint = await self.checkpointer.aget(self.config)
+        messages = checkpoint.get("channel_values", {}).get("messages", []) if checkpoint else []
 
         if len(messages) > MAX_MSG_SUMMARY:
             old_messages = messages[:-MAX_MSG_SUMMARY]
@@ -111,8 +119,8 @@ class MemoryManager:
         return formatted_msgs
 
     async def get_context(self) -> ContextDict:
-        state = await self.checkpointer.aget(self.config)
-        messages = state.get("messages", []) if state else []
+        checkpoint = await self.checkpointer.aget(self.config)
+        messages = checkpoint.get("channel_values", {}).get("messages", []) if checkpoint else []
         last_messages = messages[-MAX_MSG_SUMMARY:] if messages else []
 
         if self.chat_instance:

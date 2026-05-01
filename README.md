@@ -2,6 +2,16 @@
 
 An AI-powered educational platform that transforms YouTube playlists into interactive learning experiences. Ask questions about any playlist and get precise answers with exact video timestamps.
 
+## Table of Contents
+
+- [Features](#features)
+- [Agents](#agents)
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
+- [Setup](#setup)
+- [Tech Stack](#tech-stack)
+- [Architecture Decision Records](#architecture-decision-records)
+
 ## Features
 
 - **Hybrid Search**: Combines BM25 lexical search with vector similarity for accurate retrieval
@@ -181,7 +191,8 @@ The application will prompt you to enter a YouTube playlist URL, then you can as
 
 ## Architecture Decision Records
 
-### ADR-001: Proxy Support for Transcript Loading
+<details>
+<summary>ADR-001: Proxy Support for Transcript Loading</summary>
 
 **Context**
 
@@ -197,9 +208,10 @@ Add optional proxy support to the transcript loader (`YoutubeLoaderWithProxy`). 
 - Proxy credentials are optional, single-video or low-volume use cases are unaffected.
 - Introduces a dependency on a third-party proxy service (Webshare) for production workloads.
 
----
+</details>
 
-### ADR-002: Hybrid Retrieval with MultiQueryRetriever
+<details>
+<summary>ADR-002: Hybrid Retrieval with MultiQueryRetriever</summary>
 
 **Context**
 
@@ -217,9 +229,10 @@ More sophisticated filters (relevance reranking, redundancy removal) were consid
 - The extra LLM call for query reformulation introduces a small, bounded cost per retrieval.
 - Retrieval behavior is tunable via environment variables (`SEARCH_TYPE`, `SEARCH_K`, `ENABLE_HYBRID_SEARCH`).
 
----
+</details>
 
-### ADR-003: Message-Count-Based Context Summarization
+<details>
+<summary>ADR-003: Message-Count-Based Context Summarization</summary>
 
 **Context**
 
@@ -237,9 +250,10 @@ In this domain, question-and-answer pairs about a course playlist tend to have a
 - The approximation holds well for typical Q&A patterns but could degrade if individual messages vary significantly in length.
 - The `MAX_MSG_SUMMARY` threshold is configurable, allowing adjustment without code changes.
 
----
+</details>
 
-### ADR-004: 30-Second Transcript Chunks with Timestamp Metadata
+<details>
+<summary>ADR-004: 30-Second Transcript Chunks with Timestamp Metadata</summary>
 
 **Context**
 
@@ -258,9 +272,10 @@ The 30-second window was chosen with citation precision as the primary goal: a r
 - Chunk count scales with total playlist duration rather than content density, which is predictable.
 - The `chunks_to_transcript` tool can reconstruct a full video transcript by sorting chunks on `start_seconds`, enabling the Analyst to work with full video context when needed.
 
----
+</details>
 
-### ADR-005: Three-Agent Architecture (Supervisor, Analyst, Teacher)
+<details>
+<summary>ADR-005: Three-Agent Architecture (Supervisor, Analyst, Teacher)</summary>
 
 **Context**
 
@@ -276,7 +291,7 @@ Split the workflow into three specialized agents coordinated by a LangGraph grap
 
 **Teacher** - a ReAct agent for generating educational evaluation material. It always receives content already prepared by the Analyst and never fetches data itself. Its sole responsibility is transforming that content into quizzes (JSON) and exams (PDF).
 
-The Supervisor can chain agents across a single request. For example, "create a quiz on topic X" follows the path: Supervisor → Analyst → Supervisor → Teacher → Supervisor → user.
+The Supervisor can chain agents across a single request. For example, "create a quiz on topic X" follows the path: Supervisor -> Analyst -> Supervisor -> Teacher -> Supervisor -> user.
 
 **Consequences**
 
@@ -284,6 +299,8 @@ The Supervisor can chain agents across a single request. For example, "create a 
 - Responsibilities are clearly separated, making it easier to modify or extend individual agents without affecting the others.
 - The Analyst and Teacher use a lighter model (`QUERY_MODEL`), reserving the more capable model for the Supervisor's coordination and response generation.
 - Chaining adds latency for complex requests that require multiple agent hops, which is an acceptable trade-off given the depth of processing involved.
+
+</details>
 
 ## License
 

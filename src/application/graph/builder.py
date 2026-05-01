@@ -78,7 +78,7 @@ async def main():
         while True:
             user_input = input("- ").strip()
             if user_input.lower() == "exit":
-                print("\nSesión finalizada.\n")
+                print("\nSession ended.\n")
                 break
             if not user_input:
                 continue

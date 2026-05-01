@@ -206,21 +206,28 @@ def save_transcripts(vector_store: Chroma, playlist: YoutubePlaylist, playlist_i
             raise VectorStoreWriteError(playlist_id, e) from e
 
 
+# ANSI escape codes used to color observation logs so they're visually distinct from LLM responses in the console.
+_DIM = "\033[2m"
+_CYAN = "\033[36m"
+_YELLOW = "\033[33m"
+_RESET = "\033[0m"
+
+
 class AgentTracer(BaseCallbackHandler):
     def on_tool_start(self, serialized, input_str, **kwargs):
         name = serialized.get("name", "?")
-        print(f"\n[tool call] {name}  →  {input_str}")
+        print(f"{_CYAN}{_DIM}\n[tool call] {name}  →  {input_str}{_RESET}")
 
     def on_tool_end(self, output, **kwargs):
         preview = str(output)[:300]
-        print(f"[tool result] {preview}{'...' if len(str(output)) > 300 else ''}")
+        print(f"{_CYAN}{_DIM}[tool result] {preview}{'...' if len(str(output)) > 300 else ''}{_RESET}")
 
     def on_chain_start(self, serialized, inputs, **kwargs):
         if not serialized:
             return
         name = serialized.get("name", "")
         if name in ("agent_manager", "agent_analyst", "agent_teacher"):
-            print(f"\n[node] {name}")
+            print(f"{_YELLOW}{_DIM}\n[node] {name}{_RESET}")
 
 
 def get_callbacks() -> list:

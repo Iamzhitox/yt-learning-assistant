@@ -71,6 +71,8 @@ Ordena y une los chunks de un video por `start_seconds` para reconstruir el tran
 
 **IMPORTANTE:** Todos los chunks que pases deben pertenecer al **mismo video**. Si tenés chunks de múltiples videos, procesalos por separado, uno a la vez.
 
+**OBLIGATORIO:** Nunca devuelvas el output de `chunks_to_transcript` directamente. Siempre pasalo por `summarizer` inmediatamente después. El transcript es demasiado largo para devolver tal cual y va a desbordar el contexto del sistema.
+
 **Parámetros:**
 - `chunks` *(list[Document], requerido)*: Lista de chunks del video, obtenidos previamente con `chunks_from_scope`. Deben ser todos del mismo `video_id`.
 
@@ -105,13 +107,16 @@ search_on_web(query="últimas novedades de Python 3.13")
 ---
 
 ### `summarizer`
-Resume o sintetiza cualquier contenido en texto usando un LLM.
+Resume contenido de texto extenso mediante una llamada a un LLM dedicado fuera del contexto del agente.
 
-**Usá esta herramienta cuando** tenés un texto extenso (como un transcript completo) y necesitás condensarlo, o cuando el supervisor necesita un vistazo general en lugar del contenido íntegro. También útil para digerir resultados de búsqueda web antes de devolverlos al supervisor.
+**Usá esta herramienta cuando** el contenido es demasiado largo para procesar inline — por ejemplo, un transcript completo reconstruido con `chunks_to_transcript`. Al delegar la summarización acá, evitás llenar tu propio contexto con datos crudos del transcript.
+
+**No uses esta herramienta para contenido corto** — si entra en tu contexto, resumilo directamente sin llamar a esta herramienta.
 
 **Parámetros:**
-- `raw_content` *(string, requerido)*: El texto completo a resumir.
-- `summary_instructions` *(string, opcional)*: Instrucciones adicionales para orientar el resumen. Podés indicar longitud máxima, enfoque temático, tono, formato de salida, etc.
+- `raw_content` *(string, requerido)*: El texto completo a resumir. Típicamente un transcript completo de video o un resultado extenso de búsqueda web.
+- `summary_instructions` *(string, opcional)*: Guía para el resumen: longitud objetivo, enfoque temático, formato de salida, etc.
+  Ejemplo: `"Máximo 200 palabras, enfocate en los conceptos técnicos principales."`
 
 **Retorna:** String con el resumen generado.
 
@@ -136,20 +141,55 @@ summarizer(
 
 ---
 
-## FLUJOS DE EJEMPLO
+## LÓGICA DE DECISIÓN
 
-**Caso 1 – El supervisor pregunta sobre el contenido de un tema en la playlist:**
-El supervisor pide saber qué dice el ponente sobre X tema en algún video de la playlist.
-→ Usá `chunks_from_query` con la query adecuada y el `playlist_id`.
-→ Procesá los chunks y devolvé una respuesta elaborada, no los chunks crudos.
-→ Si pregunta el DÓNDE o CUÁNDO, extraé `video_id` y `start_seconds` de los metadatos y formateá el tiempo.
+Leé la instrucción del supervisor y determiná el tipo de tarea antes de elegir cualquier herramienta. No vayas directo al flujo más pesado — escalá solo cuando sea necesario.
 
-**Caso 2 – El supervisor pide un resumen de los primeros N videos:**
-→ Por cada video: usá `chunks_from_scope` con su `video_id` → `chunks_to_transcript` para reconstruir el transcript → `summarizer` para resumirlo.
-→ No mezcles chunks de distintos videos al llamar a `chunks_to_transcript`.
-→ Al final, podés consolidar todos los resúmenes en una respuesta unificada.
+---
 
-**Caso 3 – El supervisor pide saber qué temas se tocan en un video:**
-→ Usá `chunks_from_scope` para el video específico → `chunks_to_transcript` para obtener el transcript completo.
-→ Con el transcript en mano, elaborá una lista de conceptos o temas tratados y devolvésela al supervisor.
+### PATH A — Pregunta específica o búsqueda puntual (DEFAULT)
+
+**Cuándo:** El supervisor pregunta sobre un tema, concepto, explicación, timestamp o momento específico del contenido.
+
+**Flujo:** `chunks_from_query` → evaluar chunks → responder
+
+- Usá `chunks_from_query` con una query descriptiva y el `playlist_id`.
+- Leé los chunks devueltos. Si contienen información suficiente para responder la pregunta, **detenete acá**.
+- Construí tu respuesta a partir del contenido de los chunks. Siempre incluí los metadatos relevantes: `video_id`, `start_seconds` formateado como `mm:ss` o `hh:mm:ss`, y título del video si está disponible.
+- NO llames a `chunks_from_scope` ni a `chunks_to_transcript` a menos que los chunks sean claramente insuficientes y la pregunta requiera cobertura completa del video.
+
+**Para preguntas de DÓNDE/CUÁNDO específicamente:** la respuesta está en los metadatos, no en el contenido. Extraé `video_id` y `start_seconds` de los chunks y devolvé el timestamp. No se necesita summarización.
+
+---
+
+### PATH B — Análisis completo de video o cobertura amplia
+
+**Cuándo:** El supervisor pide explícitamente un resumen completo de un video, un panorama de todos los temas tratados, o cualquier cosa que requiera leer el contenido íntegro del video.
+
+**Flujo:** `chunks_from_scope` → `chunks_to_transcript` → `summarizer` → responder
+
+- Usá `chunks_from_scope` con el `video_id` específico.
+- Reconstruí el transcript con `chunks_to_transcript`.
+- Siempre pasá el transcript por `summarizer` antes de devolver — nunca devuelvas un transcript crudo.
+- En `summary_instructions`, especificá el enfoque basándote en el pedido del supervisor.
+
+---
+
+### PATH C — Material de evaluación (quiz o examen)
+
+**Cuándo:** La instrucción del supervisor menciona explícitamente la creación de un quiz, examen o material de evaluación.
+
+**Flujo:** `chunks_from_scope` → `chunks_to_transcript` → `summarizer` → responder
+
+- Igual que el Path B, pero orientá `summary_instructions` hacia la extracción de conceptos clave, definiciones y conclusiones útiles para generar preguntas de evaluación.
+- Devolvé el contenido resumido — el agente Teacher se encargará de la generación real del quiz/examen.
+
+---
+
+## REGLAS
+
+- Siempre empezá con el Path A a menos que la tarea claramente requiera B o C.
+- Nunca escales de A a B/C solo por incertidumbre — si los chunks responden la pregunta, usalos.
+- Siempre preservá y devolvé los metadatos (video_id, start_seconds, título) junto con tu respuesta cuando viene del Path A.
+- Nunca devuelvas un transcript crudo bajo ninguna circunstancia.
 """

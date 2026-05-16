@@ -129,6 +129,9 @@ pip install -r requirements.txt
 # Configure environment
 cp .env.example .env
 # Edit .env with your API keys
+
+# Make the run script executable
+chmod +x run
 ```
 
 ### Environment Variables
@@ -137,7 +140,6 @@ cp .env.example .env
 # REQUIRED
 GOOGLE_API_KEY=           # YouTube Data API v3
 TAVILY_API_KEY=           # Tavily web search
-DEFAULT_CHAT_ID=          # UUID of the chat session to load/resume
 
 # LLM — provider-agnostic via LangChain init_chat_model
 LLM_PROVIDER=anthropic    # or openai, google-genai, etc.
@@ -174,10 +176,10 @@ PROXY_PASS=      # Webshare proxy password
 ## Usage
 
 ```bash
-python main.py
+./run cli
 ```
 
-The application will prompt you to enter a YouTube playlist URL, then you can ask questions about the content.
+The CLI lists your already-indexed playlists. Select one to resume its conversation, or enter a new YouTube playlist URL to index and start fresh.
 
 ## Tech Stack
 

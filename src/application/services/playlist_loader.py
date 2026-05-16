@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 
 from googleapiclient.discovery import build
@@ -22,6 +23,8 @@ from src.infrastructure.config import (
     LANG,
     PROXY_USER,
     PROXY_PASS,
+    DELAY_LOAD_TIME,
+    TRANSCRIPT_OVERLAP_CHARS,
 )
 
 
@@ -64,7 +67,12 @@ class YouTubePlaylistLoader:
         self.yt_playlist.date = playlist_details.get("publishedAt")
 
         thumbnails = playlist_details.get("thumbnails", {})
-        thumbnail = thumbnails.get("standard") or thumbnails.get("high") or thumbnails.get("default") or {}
+        thumbnail = (
+            thumbnails.get("standard")
+            or thumbnails.get("high")
+            or thumbnails.get("default")
+            or {}
+        )
         self.yt_playlist.thumbnail_url = thumbnail.get("url", "")
 
         content_details = playlist_data.get("contentDetails", {})
@@ -111,7 +119,12 @@ class YouTubePlaylistLoader:
                 video_description = video_snippet.get("description")
 
                 thumbnails = video_snippet.get("thumbnails", {})
-                thumbnail = thumbnails.get("standard") or thumbnails.get("high") or thumbnails.get("default") or {}
+                thumbnail = (
+                    thumbnails.get("standard")
+                    or thumbnails.get("high")
+                    or thumbnails.get("default")
+                    or {}
+                )
                 video_thumbnail = thumbnail.get("url", "")
 
                 extra = videos_extra_data.get(video_id, {})
@@ -157,7 +170,7 @@ class YouTubePlaylistLoader:
 
         return hours * 3600 + minutes * 60 + seconds
 
-    async def load_transcript_videos(self, delay_seconds: int = 3):
+    async def load_transcript_videos(self, delay_seconds: int = DELAY_LOAD_TIME):
         for idx, video in enumerate(self.yt_playlist.videos):
             try:
                 yt_loader = YoutubeLoaderWithProxy(
@@ -188,10 +201,9 @@ class YouTubePlaylistLoader:
                 )
                 if previous_chars_overlap:
                     transcript_line.page_content = (
-                        f"{previous_chars_overlap}"
-                        f"{transcript_line.page_content}"
+                        f"{previous_chars_overlap}" f"{transcript_line.page_content}"
                     )
-                previous_chars_overlap = transcript_line.page_content[-100:]
+                previous_chars_overlap = transcript_line.page_content[-TRANSCRIPT_OVERLAP_CHARS:]
 
             video.transcript = list(transcript_lines)
 

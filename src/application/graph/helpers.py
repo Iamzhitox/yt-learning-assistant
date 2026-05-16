@@ -169,16 +169,6 @@ def seconds_to_hms(seconds: float | int | None) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
-def get_playlist_id():
-    yt_playlist_url = input(
-        f"{'='*50}\n\nChoose a playlist for the model to learn from:\n\n{'='*50}\n\n- "
-    )
-    yt_playlist_id = get_playlist_id_from_url(yt_playlist_url)
-    print("\n\n")
-
-    return yt_playlist_id
-
-
 async def get_playlist_details(
     yt_service: YouTubePlaylistLoader, playlist_id: str, is_loaded: bool
 ):
@@ -209,6 +199,7 @@ def save_transcripts(vector_store: Chroma, playlist: YoutubePlaylist, playlist_i
 # ANSI escape codes used to color observation logs so they're visually distinct from LLM responses in the console.
 _DIM = "\033[2m"
 _CYAN = "\033[36m"
+_GREEN = "\033[32m"
 _YELLOW = "\033[33m"
 _RESET = "\033[0m"
 
@@ -220,7 +211,7 @@ class AgentTracer(BaseCallbackHandler):
 
     def on_tool_end(self, output, **kwargs):
         preview = str(output)[:300]
-        print(f"{_CYAN}{_DIM}[tool result] {preview}{'...' if len(str(output)) > 300 else ''}{_RESET}")
+        print(f"{_GREEN}{_DIM}[tool result] {preview}{'...' if len(str(output)) > 300 else ''}{_RESET}")
 
     def on_chain_start(self, serialized, inputs, **kwargs):
         if not serialized:

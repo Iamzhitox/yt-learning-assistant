@@ -3,7 +3,7 @@ from langchain_core.tools import tool
 from src.application.graph.helpers import gen_retriever, init_vector_db, scope_filter
 from langchain_core.documents import Document
 from langchain.chat_models import init_chat_model
-from src.infrastructure.config import QUERY_MODEL, LLM_PROVIDER
+from src.infrastructure.config import QUERY_MODEL, LLM_PROVIDER, TRANSCRIPT_OVERLAP_CHARS
 from langchain_core.prompts import ChatPromptTemplate
 from tavily import TavilyClient
 from src.infrastructure.config import TAVILY_API_KEY
@@ -115,7 +115,8 @@ def create_transcript_from_chunks(chunks: list[Document]) -> str:
              with chunks joined in chronological order.
     """
     sorted_chunks = sorted(chunks, key=lambda doc: doc.metadata.get("start_seconds", 0))
-    return "".join([chunk.page_content for chunk in sorted_chunks])
+    parts = [sorted_chunks[0].page_content] + [c.page_content[TRANSCRIPT_OVERLAP_CHARS:] for c in sorted_chunks[1:]]
+    return "".join(parts)
 
 
 @tool("search_on_web")

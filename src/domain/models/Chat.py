@@ -1,5 +1,19 @@
+from datetime import datetime
 from sqlmodel import Field, SQLModel, Relationship
 from uuid import UUID
+
+
+class Playlist(SQLModel, table=True):
+    playlist_id: str = Field(primary_key=True)
+    title: str
+    author: str
+    description: str = Field(default="")
+    thumbnail_url: str = Field(default="")
+    videos_qty: int = Field(default=0)
+    indexed_at: datetime | None = Field(default=None)
+    status: str = Field(default="indexing")
+
+    chats: list["Chat"] = Relationship(back_populates="playlist")
 
 
 class Message(SQLModel, table=True):
@@ -26,6 +40,10 @@ class Chat(SQLModel, table=True):
     title: str | None = None
     pruned_history_summary: str | None = None
     messages_count: int = 0
+    playlist_id: str | None = Field(
+        default=None, foreign_key="playlist.playlist_id", index=True
+    )
 
     messages: list[Message] = Relationship(back_populates="chat")
     preferences: list[ChatPreference] = Relationship(back_populates="chat")
+    playlist: Playlist | None = Relationship(back_populates="chats")

@@ -1,5 +1,4 @@
 from .state import State
-from .builder import main
 from .helpers import (
     get_playlist_id_from_url,
     playlist_exist,
@@ -11,7 +10,6 @@ from .helpers import (
 
 __all__ = [
     "State",
-    "main",
     "get_playlist_id_from_url",
     "playlist_exist",
     "init_vector_db",

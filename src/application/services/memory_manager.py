@@ -30,8 +30,9 @@ class MemoryState(TypedDict):
 
 class MemoryManager:
 
-    def __init__(self, checkpointer, chat_id: str | None = None):
+    def __init__(self, checkpointer, chat_id: str | None = None, playlist_id: str | None = None):
         self.checkpointer = checkpointer
+        self.playlist_id = playlist_id
         self.config = None
 
         if chat_id:
@@ -49,7 +50,7 @@ class MemoryManager:
         return self.new_chat or False
 
     def _create_chat_with_id(self, chat_id: str) -> Chat:
-        new_chat = Chat(chat_id=UUID(chat_id))
+        new_chat = Chat(chat_id=UUID(chat_id), playlist_id=self.playlist_id)
         with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             session.add(new_chat)
             session.commit()
@@ -58,7 +59,7 @@ class MemoryManager:
 
     def _create_new_chat(self) -> Chat:
         new_chat_id = uuid.uuid4()
-        new_chat = Chat(chat_id=new_chat_id)
+        new_chat = Chat(chat_id=new_chat_id, playlist_id=self.playlist_id)
         with Session(ENGINE, **ENGINE_SESSION_KWARGS) as session:
             session.add(new_chat)
             session.commit()

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+source venv/bin/activate
+
+COMMAND="$1"
+RUNNER="$SCRIPT_DIR/commands/$COMMAND"
+
+if [[ -z "$COMMAND" ]]; then
+    echo "Usage: ./run <command>"
+    echo ""
+    echo "Available commands:"
+    ls "$SCRIPT_DIR/commands/"
+    exit 1
+fi
+
+if [[ ! -f "$RUNNER" ]]; then
+    echo "Unknown command: $COMMAND"
+    echo ""
+    echo "Available commands:"
+    ls "$SCRIPT_DIR/commands/"
+    exit 1
+fi
+
+bash "$RUNNER"

@@ -7,17 +7,23 @@ from src.application.graph.helpers import playlist_exist
 from src.application.graph.state import State
 from src.application.graph.helpers import (
     init_vector_db,
-    get_playlist_id,
     get_playlist_details,
     save_transcripts,
     get_callbacks,
 )
-from src.infrastructure.config import CHAT_STATE_DIR, DEFAULT_CHAT_ID
-from src.application.services.memory_manager import MemoryManager
+from src.infrastructure.config import CHAT_STATE_DIR
 from src.application.graph.nodes.manager import manager_node
 from src.application.graph.nodes.analyst import analyst_node
 from src.application.graph.nodes.teacher import teacher_node
 from src.application.services import YouTubePlaylistLoader
+from src.application.cli import (
+    list_indexed_playlists,
+    prompt_playlist_selection,
+    prompt_new_playlist_url,
+    save_new_playlist,
+    get_or_create_chat,
+    print_resume_context,
+)
 
 # region GRAPH
 
@@ -42,33 +48,39 @@ def create_compiled_graph(checkpointer: AsyncSqliteSaver):
 
 async def main():
     vector_store = init_vector_db()
-    playlist_id = get_playlist_id()
 
-    is_playlist_already_saved = playlist_exist(
-        vector_store=vector_store, playlist_id=playlist_id
-    )
+    playlists = list_indexed_playlists()
+    selected = prompt_playlist_selection(playlists)
 
-    yt_service = YouTubePlaylistLoader(playlist_id=playlist_id)
-
-    yt_playlist = await get_playlist_details(
-        yt_service=yt_service,
-        playlist_id=playlist_id,
-        is_loaded=is_playlist_already_saved,
-    )
-
-    if not is_playlist_already_saved:
-        save_transcripts(
-            vector_store=vector_store, playlist=yt_playlist, playlist_id=playlist_id
+    if selected is None:
+        playlist_id = prompt_new_playlist_url()
+        is_saved = playlist_exist(vector_store=vector_store, playlist_id=playlist_id)
+        yt_service = YouTubePlaylistLoader(playlist_id=playlist_id)
+        yt_playlist = await get_playlist_details(
+            yt_service=yt_service, playlist_id=playlist_id, is_loaded=is_saved
+        )
+        if not is_saved:
+            save_transcripts(
+                vector_store=vector_store, playlist=yt_playlist, playlist_id=playlist_id
+            )
+            save_new_playlist(playlist_id=playlist_id, yt_playlist=yt_playlist)
+    else:
+        playlist_id = selected.playlist_id
+        yt_service = YouTubePlaylistLoader(playlist_id=playlist_id)
+        yt_playlist = await get_playlist_details(
+            yt_service=yt_service, playlist_id=playlist_id, is_loaded=True
         )
 
     async with AsyncSqliteSaver.from_conn_string(CHAT_STATE_DIR) as checkpointer:
-        memory = MemoryManager(chat_id=DEFAULT_CHAT_ID, checkpointer=checkpointer)
+        memory = get_or_create_chat(playlist_id=playlist_id, checkpointer=checkpointer)
         config: RunnableConfig = {
             "configurable": {"thread_id": memory.get_chat_id()},
             "callbacks": get_callbacks(),
         }
 
         compiled_graph = create_compiled_graph(checkpointer)
+
+        await print_resume_context(memory)
 
         playlist_title = yt_playlist.title
         print(

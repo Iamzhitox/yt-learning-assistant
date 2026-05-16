@@ -22,6 +22,8 @@ from src.infrastructure.config.config import (
     DEFAULT_CHAT_ID,
     TAVILY_API_KEY,
     DISPLAY_OBSERVATIONS,
+    DELAY_LOAD_TIME,
+    TRANSCRIPT_OVERLAP_CHARS,
 )
 
 from src.infrastructure.config.database import engine as ENGINE, ENGINE_SESSION_KWARGS
@@ -52,4 +54,6 @@ __all__ = [
     "DEFAULT_CHAT_ID",
     "TAVILY_API_KEY",
     "DISPLAY_OBSERVATIONS",
+    "DELAY_LOAD_TIME",
+    "TRANSCRIPT_OVERLAP_CHARS",
 ]

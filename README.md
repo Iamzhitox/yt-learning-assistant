@@ -9,6 +9,7 @@ An AI-powered educational platform that transforms YouTube playlists into intera
 - [Architecture](#architecture)
 - [How It Works](#how-it-works)
 - [Setup](#setup)
+- [API](#api)
 - [Tech Stack](#tech-stack)
 - [Architecture Decision Records](#architecture-decision-records)
 
@@ -58,25 +59,32 @@ ReAct agent for generating educational evaluation material. Always receives cont
 
 ```
 src/
+├── api/
+│   ├── lifespan.py        # Startup/shutdown: vector store, checkpointer, graph, ingestion state
+│   ├── dependencies.py    # FastAPI Depends: get_graph, get_checkpointer, get_vector_store, get_ingestion_lock
+│   ├── schemas/           # Request/response Pydantic models
+│   ├── streaming/         # SSEEvent, SSEAgentTracer, GraphExecutionError, run_graph_with_sse
+│   └── routers/           # playlists.py, chat.py, history.py, files.py
+│
 ├── application/
-│   ├── agents/           # supervisor.py, analyst_agent.py, teacher_agent.py
+│   ├── agents/            # supervisor.py, analyst_agent.py, teacher_agent.py
 │   ├── graph/
-│   │   ├── nodes/        # manager.py, analyst.py, teacher.py (node wrappers)
-│   │   ├── state.py      # State, ContextDict TypedDicts
-│   │   ├── builder.py    # Graph compilation
-│   │   └── helpers.py    # Vector DB init, retriever factory, AgentTracer
+│   │   ├── nodes/         # manager.py, analyst.py, teacher.py (node wrappers)
+│   │   ├── state.py       # State, ContextDict TypedDicts
+│   │   ├── builder.py     # Graph compilation
+│   │   └── helpers.py     # Vector DB init, retriever factory, AgentTracer
 │   └── services/
 │       ├── playlist_loader.py
 │       └── memory_manager.py
 │
 ├── domain/
-│   ├── models/           # YoutubePlaylist, YoutubeVideo, Chat, Message
+│   ├── models/            # YoutubePlaylist, YoutubeVideo, Chat, Message, Artifact
 │   ├── exceptions/
-│   └── prompts/          # SUPERVISOR_PROMPT_EN, ANALYST_PROMPT_EN, TEACHER_PROMPT_EN
+│   └── prompts/           # SUPERVISOR_PROMPT_EN, ANALYST_PROMPT_EN, TEACHER_PROMPT_EN
 │
 └── infrastructure/
     ├── config/
-    └── extensions/       # chat_models/, embeddings/, loaders/
+    └── extensions/        # chat_models/, embeddings/, loaders/
 ```
 
 ## How It Works
@@ -180,6 +188,64 @@ PROXY_PASS=      # Webshare proxy password
 ```
 
 The CLI lists your already-indexed playlists. Select one to resume its conversation, or enter a new YouTube playlist URL to index and start fresh.
+
+## API
+
+The platform exposes a REST + SSE API built with FastAPI.
+
+```bash
+./run api
+```
+
+Interactive documentation is available at:
+- **Swagger UI**: `http://localhost:8000/docs` — try requests directly from the browser
+- **ReDoc**: `http://localhost:8000/redoc` — full schema reference
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/playlists` | List all fully indexed playlists |
+| `POST` | `/playlists` | Ingest a playlist URL (202 — metadata immediate, transcripts in background) |
+| `GET` | `/playlists/{playlist_id}` | Get playlist metadata and video list |
+| `POST` | `/chat/stream` | Stream a conversation turn as Server-Sent Events |
+| `GET` | `/chats/{chat_id}/history` | Retrieve conversation history and rolling summary |
+| `GET` | `/chats/{chat_id}/artifacts` | Retrieve all artifacts (quizzes, citations, PDFs) for a session |
+| `GET` | `/files/exams/{filename}` | Download a generated PDF exam |
+
+### SSE Event Stream
+
+`POST /chat/stream` returns a `text/event-stream` response. Events are emitted in this order:
+
+```
+event: status_update
+data: {"agent": "agent_analyst", "phase": "start"}
+
+event: status_update
+data: {"tool": "chunks_from_query", "phase": "start", "preview": "what is backpropagation"}
+
+event: status_update
+data: {"tool": "chunks_from_query", "phase": "end", "preview": "[{\"page_content\": \"...\"}]"}
+
+event: citations
+data: {"items": [{"video_id": "dQw4w9WgXcQ", "start_seconds": 142, "label": "Neural Networks - Lecture 3"}]}
+
+event: final_response
+data: {"content": "Backpropagation is an algorithm for computing gradients..."}
+```
+
+If something fails, an `error` event is emitted instead of `final_response`:
+
+```
+event: error
+data: {"message": "...", "code": "GRAPH_ERROR"}
+```
+
+`code` is `GRAPH_ERROR` when the failure originated inside the LangGraph pipeline, or `STREAM_ERROR` for bugs in the streaming layer.
+
+### Session handling
+
+Pass `chat_id` in the request body to resume an existing conversation. Omit it (or pass `null`) to start a new session — the server generates a UUID and returns it in the `X-Chat-Id` response header.
 
 ## Tech Stack
 
